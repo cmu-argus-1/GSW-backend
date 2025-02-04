@@ -3,7 +3,7 @@ import time
 from collections import deque
 
 import RPi.GPIO as GPIO
-from database import db_services
+# from database import db_services
 
 from lib.radio_utils import initialize_radio
 from lib.telemetry.unpacking import TelemetryUnpacker
@@ -80,9 +80,13 @@ class FIFOQueue:
 
 
 queue = FIFOQueue()
-queue.enqueue(MSG_ID.GS_CMD_REQUEST_TM_HEARTBEAT)
-queue.enqueue(MSG_ID.GS_CMD_FORCE_REBOOT)
-queue.enqueue(MSG_ID.GS_CMD_REQUEST_TM_HEARTBEAT)
+# queue.enqueue(MSG_ID.GS_CMD_REQUEST_TM_HEARTBEAT)
+# queue.enqueue(MSG_ID.GS_CMD_FORCE_REBOOT)
+# queue.enqueue(MSG_ID.GS_CMD_REQUEST_TM_HEARTBEAT)
+
+queue.enqueue(0x46)
+queue.enqueue(0x4A)
+queue.enqueue(0x46)
 # queue.enqueue(0x4B)
 # --------------------------------------------------------------------------- #
 
@@ -178,8 +182,8 @@ class GS:
                     if queue.is_empty():
                         self.rq_cmd = MSG_ID.GS_CMD_REQUEST_TM_HEARTBEAT
                     else:
-                        self.rq_cmd = db_services.get_latest_command()
-                        # self.rq_cmd = queue.dequeue()
+                        # self.rq_cmd = db_services.get_latest_command()
+                        self.rq_cmd = queue.dequeue()
 
                 else:
                     # Valid file on satellite
@@ -194,8 +198,8 @@ class GS:
                     print("Queue is empty")
                     self.rq_cmd = MSG_ID.GS_CMD_REQUEST_TM_HEARTBEAT
                 else:
-                    self.rq_cmd = db_services.get_latest_command()
-                    # self.rq_cmd = queue.dequeue()
+                    # self.rq_cmd = db_services.get_latest_command()
+                    self.rq_cmd = queue.dequeue()
 
             self.state = GS_COMMS_STATE.TX
 
@@ -258,13 +262,13 @@ class GS:
             # Transmit message through radiohead
             GPIO.output(self.tx_ctrl, GPIO.HIGH)  # Turn TX on
 
-            if self.rq_cmd.command_id == MSG_ID.GS_CMD_SWITCH_TO_STATE:
-                self.transmit_SwitchToState()
+            # if self.rq_cmd.command_id == MSG_ID.GS_CMD_SWITCH_TO_STATE:
+            #     self.transmit_SwitchToState()
 
-            elif self.rq_cmd == MSG_ID.GS_CMD_FORCE_REBOOT:
-                self.transmit_ForceReboot()
+            # elif self.rq_cmd == MSG_ID.GS_CMD_FORCE_REBOOT:
+            #     self.transmit_ForceReboot()
 
-            elif self.rq_cmd == MSG_ID.GS_CMD_FILE_METADATA:
+            if self.rq_cmd == MSG_ID.GS_CMD_FILE_METADATA:
                 self.transmit_Metadata()
 
             elif self.rq_cmd == MSG_ID.GS_CMD_FILE_PKT:
@@ -333,7 +337,12 @@ class GS:
         if self.gs_msg_sq != self.rx_msg_sq:
             # Sequence count mismatch
             print("ERROR: Sequence count mismatch")
-
+        
+        elif self.gs_msg_sq % 10 == 2:  # Every 5th packet is "corrupted"
+                print("SIMULATED CRC ERROR")
+                corrupted = (self.rx_message[9 : self.rx_msg_size + 9])[0] ^ 0xFF
+                self.file_array.append(self.rx_message[9 : self.rx_msg_size + 9])
+                self.gs_msg_sq += 1
         else:
             # Append packet to file_array
             self.file_array.append(self.rx_message[9 : self.rx_msg_size + 9])
