@@ -264,3 +264,4 @@ class TelemetryUnpacker:
         print("GPS Data:", self._data_GPS)
         print("THERMAL Data:", self._data_THERMAL)
         print()
+        # tm_data["tm_data"] = {}
