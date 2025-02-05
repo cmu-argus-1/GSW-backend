@@ -20,7 +20,7 @@ class ModemConfig(Enum):
     Bw500Cr45Sf128 = (0x92, 0x74, 0x04)
     Bw31_25Cr48Sf512 = (0x48, 0x94, 0x04)
     Bw125Cr48Sf4096 = (0x78, 0xC4, 0x0C)
-
+ 
 
 class LoRa(object):
     def __init__(
@@ -58,6 +58,7 @@ class LoRa(object):
         self.retry_timeout = 0.2
 
         self.crc_error_count = 0
+        # self.crc_error_flag = 0
 
         # Setup the module
         btn = Button(self._interrupt, pull_up=False)
@@ -314,6 +315,7 @@ class LoRa(object):
                 rssi = round(rssi - 164, 2)
 
             if packet_len >= 4:
+                print ("hello1")
                 header_to = packet[0]
                 header_from = packet[1]
                 header_id = packet[2]
@@ -326,18 +328,22 @@ class LoRa(object):
                 if (
                     header_to != 255 and self._this_address != header_to
                 ) or self._receive_all is True:
+                    print ("hello2")
                     return
 
                 if self.crypto and len(message) % 16 == 0:
                     message = self._decrypt(message)
+                    print ("hello3")
 
                 if (
                     self._acks
                     and header_to == self._this_address
                     and not header_flags & Definitions.FLAGS_ACK
                 ):
+                    print ("hello4")
                     self.send_ack(header_from, header_id)
 
+                print(f"Current mode: {self._mode}")
                 self.set_mode_rx()
 
                 self._last_payload = namedtuple(
@@ -391,6 +397,10 @@ class LoRa(object):
     def crc_error(self):
         """crc status. Taken from PyCubed Repo by Max Holliday"""
         error = (self._spi_read(Definitions.REG_12_IRQ_FLAGS) & 0x20) >> 5
+         # *** FORCE A CRC ERROR CONDITION RANDOMLY ***
+        import random
+        if random.random() < 0.1:
+            error = 1
 
         if error == 1:
             print("CRC Error!")
@@ -400,3 +410,5 @@ class LoRa(object):
     def close(self):
         # GPIO.cleanup()
         self.spi.close()
+
+
